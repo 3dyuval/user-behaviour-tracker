@@ -21,7 +21,7 @@ export type Tracker = {
     results: Results,
 }
 
-export  type Results = {
+export type Results = {
     userInfo: {
         appCodeName: string,
         appName: string,
@@ -33,12 +33,9 @@ export  type Results = {
         startTime: number,
         currentTime: number,
     },
-    clicks: {
-        clickCount: number,
-        clickDetails: Array<any>,
-    },
-    mouseMovements: Array<any>,
-    mouseScroll: Array<any>,
+    move: Array<[number, number, number]>
+    clicks: Array<any>,
+    clicksCount: number,
     contextChange: Array<any>,
-    //keyLogger: Array<any>,
+    keyLogger: Array<any>,
 }
