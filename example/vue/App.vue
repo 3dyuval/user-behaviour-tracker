@@ -1,19 +1,24 @@
 <script setup lang="ts">
 import Tracker from '../../src/index'
-import { computed, reactive, ref } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import Render from './Render.vue'
 
 
 const tracker = new Tracker({
-  mouseMovementInterval: 500,
-  callbackInterval: 5000
+  mouseEventsInterval: 500,
+  callbackInterval: 1000,
+  callback: console.info,
+  debug: true
 });
+
+const openAiKey = import.meta.env.APP_OPENAI_API_KEY
 
 const rawData = ref({})
 const isTracking = ref(false)
 const isAnalyzing = ref(false)
 
 const actions = reactive({
+
   start: {
     name: 'start',
     description: 'Starts the tracker',
@@ -26,6 +31,7 @@ const actions = reactive({
       isTracking.value = true
     }
   },
+
   stop: {
     name: 'stop',
     description: 'Stops the tracker',
@@ -34,23 +40,23 @@ const actions = reactive({
     })),
     handler: () => {
       rawData.value = tracker.stop()
-      tracker.clear()
       isTracking.value = false
-      console.dir(rawData.value, { colors: true, depth: 10, showProxy: false });
     }
   },
+
   analyze: {
     name: computed(() =>
       isAnalyzing.value ? 'Analyzing...' : 'Analyze'
     ),
     description: 'Analyze user input data into insight',
     props: computed(() => ({
-      disabled: !!isAnalyzing.value || !rawData.value?.clicks
+      disabled: !!isAnalyzing.value || !Object.keys(rawData.value).length
     })),
     handler: async () => {
       isAnalyzing.value = true
-      rawData.value = await tracker.analyzeResults({
-        openAiKey: import.meta.env['VITE_OPENAI_KEY'],
+      rawData.value =  tracker.analyzeResults()
+      rawData.value = await tracker.getInsights({
+        openAiKey,
       })
       isAnalyzing.value = false
 
@@ -92,5 +98,13 @@ const actions = reactive({
   max-width: 100%;
   overflow: auto;
   max-height: 50vh;
+}
+
+button, pre, code, h1, h2, h3, h4, h5, h6 {
+  padding: .8rem;
+  border-radius: .25rem;
+  border: none;
+  margin-inline-end: .25rem;
+  margin-inline-start: .25rem;
 }
 </style>

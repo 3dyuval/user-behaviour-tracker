@@ -1,18 +1,19 @@
-import { defineConfig } from 'vite'
+import { defineConfig, UserConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import path from 'node:path'
+
+const common = {
+    resolve: {
+        alias: {
+            '~': '/src'
+        }
+    },
+    envPrefix: 'APP_',
+    envDir: path.resolve('.') // root
+} satisfies UserConfig
+
 
 export default defineConfig(({ command }) => {
-
-    const common = {
-        resolve: {
-            alias: {
-                '~': '/src'
-            }
-        },
-        test: {
-            environment: 'jsdom'
-        }
-    }
 
     if (command === 'serve') {
         return {
