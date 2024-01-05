@@ -8,7 +8,21 @@ const tracker = new Tracker({
   mouseEventsInterval: 500,
   callbackInterval: 1000,
   callback: console.info,
-  debug: true
+  debug: true,
+  mouseEvents: {
+    scroll: true,
+    mouseenter: true,
+    mousemove: true,
+    click: {
+      before: ([timestamp, frame]) => {
+        return [timestamp, {...frame, x: frame.event.offsetX, y: frame.event.offsetY}]
+      },
+    }
+  },
+  keyboardEvents: {
+    keydown: true,
+    keyup: true
+  }
 });
 
 const openAiKey = import.meta.env.APP_OPENAI_API_KEY
@@ -46,7 +60,7 @@ const actions = reactive({
 
   analyze: {
     name: computed(() =>
-      isAnalyzing.value ? 'Analyzing...' : 'Analyze'
+        isAnalyzing.value ? 'Analyzing...' : 'Analyze'
     ),
     description: 'Analyze user input data into insight',
     props: computed(() => ({
@@ -54,14 +68,14 @@ const actions = reactive({
     })),
     handler: async () => {
       isAnalyzing.value = true
-      rawData.value =  tracker.analyzeResults()
+      rawData.value = tracker.analyzeResults()
       rawData.value = await tracker.getInsights({
-        openAiKey,
+        openAiKey
       })
       isAnalyzing.value = false
 
     }
-  },
+  }
 })
 
 </script>

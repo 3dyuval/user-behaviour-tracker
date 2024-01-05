@@ -1,3 +1,6 @@
+
+
+
 type KeyboardEvents<T> = {
     keyboardEvents: {
         keydown: T;
@@ -74,6 +77,15 @@ type Events<T> =
     & AnimationTransitionEvents<T>
     & WindowEvents<T>
 
+type PartialEvents<T> =
+     Partial<KeyboardEvents<T>>
+     & Partial<MouseEvents<T>>
+     & Partial<FormEvents<T>>
+     & Partial<DragDropEvents<T>>
+     & Partial<MediaEvents<T>>
+     & Partial<AnimationTransitionEvents<T>>
+     & Partial<WindowEvents<T>>
+
 
 type TrackerSettings = {
     callback: (event?: Results) => void,
@@ -86,10 +98,10 @@ type TrackerSettings = {
     clearAfterProcess: boolean,
     processTime: number,
     processData: Function,
-    debug: boolean
+    debug?: boolean
 }
 
-export type Config = Events<{ [key: string]: boolean | Function }> & TrackerSettings
+export type Config = PartialEvents<true | undefined | Function> & TrackerSettings
 
 export type Tracker = {
     running: boolean,
@@ -102,6 +114,7 @@ export type Tracker = {
 }
 
 export type Results = {
+        url: string;
         userInfo: {
             appCodeName: string;
             appName: string;
@@ -116,15 +129,18 @@ export type Results = {
             currentTime: number;
         };
     }
-    & MouseEvents<Map<[number, number, number], HTMLElement>>
-    & KeyboardEvents<Map<[string, number], HTMLElement>>
-    & FormEvents<Map<[string, number], HTMLElement>>
-    & DragDropEvents<Map<[string, number], HTMLElement>>
-    & MediaEvents<Map<[string, number], HTMLElement>>
-    & AnimationTransitionEvents<Map<[string, number], HTMLElement>>
-    & WindowEvents<Map<[string, number], HTMLElement>>
+    & MouseEvents<EventFrameMap<MouseEvent>>
+    & KeyboardEvents<EventFrameMap<KeyboardEvent>>
+    & FormEvents<EventFrameMap<Event>>
+    & DragDropEvents<EventFrameMap<DragEvent>>
+    & MediaEvents<EventFrameMap<MediaEvents<MediaStream>>>
+    & AnimationTransitionEvents<EventFrameMap<AnimationEvent>>
+    & WindowEvents<EventFrameMap<Event>>;
 
 
+type timestamp = number
+
+type EventFrameMap  <T> = Map<timestamp, { element: HTMLElement, event: T }>
 
 
 export type AnalyzeResultsOptions = {
