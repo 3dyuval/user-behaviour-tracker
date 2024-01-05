@@ -1,18 +1,18 @@
-import { Config, Tracker, Results, AnalyzeResultsOptions, AnalyzeResultsOutput } from "./types";
+import { Config, Tracker, Metadata, AllEventFrames, TrackerSettings} from "./types";
 import { fromEvent, map, mergeMap, throttle, throttleTime } from 'rxjs'
 import ScrollEvent = JQuery.ScrollEvent
+import { Events } from './types'
 
 
 const noop = () => void 0;
 const id = (x: any) => x;
-type Frame = [number, { element: HTMLElement; event: Event; }]
-type CallbackListener = <T>(args: T) => T | (<T>(frame: Frame) => Frame & T);
 
 export default class UserBehavior {
     public config: Config
-    public _results: Results
+    public _frames: AllEventFrames
+    private _metadata: Metadata
     private _running = false
-    private _eventTypes: string[] = []
+    private _eventTypes = new Map()
     private controller = new AbortController()
     private signal = this.controller.signal
     private intervals: any[] = []
@@ -29,7 +29,7 @@ export default class UserBehavior {
             processTime: 15,
             ...userConfig
         }
-        this._results = {
+        this._metadata = {
             url: window?.location?.href || '',
             userInfo: {
                 appCodeName: window?.navigator?.appCodeName || '',
@@ -44,6 +44,8 @@ export default class UserBehavior {
                 startTime: 0,
                 currentTime: 0
             },
+        }
+        this._frames = {
             mouseEvents: {
                 scroll: new Map(),
                 mousemove: new Map(),
@@ -115,7 +117,7 @@ export default class UserBehavior {
 
         // TIME SET
         if (this.config.timeCount) {
-            this._results.time.startTime = this.getTimeStamp();
+            this._metadata.time.startTime = this.getTimeStamp();
         }
 
         // MOUSE MOVEMENTS
@@ -153,7 +155,6 @@ export default class UserBehavior {
             this.capture('windowEvents', this.config.windowEvents)
         }
 
-
         // PROCESS CALLBACK
         this.intervals.push(setInterval(() => {
             this.config.callback(this.results)
@@ -161,40 +162,33 @@ export default class UserBehavior {
     };
 
 
-    private capture(eventType: string, events: any) {
-        this._eventTypes.push(eventType)
-        Object.entries(events).forEach(([eventKey, option]) => {
-            if (!!option) {
-                this.addEventListener(
-                    eventType,
-                    eventKey,
-                    option
-                )
-            }
-        })
-    }
+    private capture(groupKey, group) {
+        for ( const [eventKey, option ] of Object.entries(group))  {
+                const all = this._eventTypes.get(groupKey)
 
-    private addEventListener(
-        eventType,
-        key: string,
-        callback: {
-            before: CallbackListener,
-            after: CallbackListener,
-        } | true ) {
+                if (all) {
+                    all[eventKey] = option
+                } else {
+                    this._eventTypes.set(groupKey, {
+                        [eventKey]: option
+                    })
+                }
 
-        const [before = id , after = id] =  [callback.before, callback.after]
+                const [before = id, after = id] = [option.before, option.after]
 
-        this.intervals.push(
-            fromEvent(document, key)
-                .pipe(
-                    throttleTime(this.config.mouseEventsInterval),
-                    map((e) => this.CaptureFrame(e)),
-                    map(before)
-                ).subscribe((e) => {
-                this._results[eventType][key].set(...e)
-                after(e)
-            })
-        );
+
+                this.intervals.push(
+                    fromEvent(document, eventKey)
+                        .pipe(
+                            throttleTime(this.config.mouseEventsInterval),
+                            map(before),
+                            map((e) => this.CaptureFrame(e)),
+                        ).subscribe((e) => {
+                        this._frames[groupKey][eventKey].set(...e)
+                    })
+                );
+
+        }
     }
 
 
@@ -212,7 +206,7 @@ export default class UserBehavior {
 
     public get results() {
         if (this.config.timeCount) {
-            this._results.time.currentTime = this.getTimeStamp();
+            this._metadata.time.currentTime = this.getTimeStamp();
         }
         return this.analyzeResults()
     }
@@ -239,29 +233,52 @@ export default class UserBehavior {
     public analyzeResults(options: Partial<any> = {}): any {
 
 
-       const rawData =  this._eventTypes.reduce((acc: any , eventType) => {
-            const groupByElement = {}
-            for (const [e, efm] of Object.entries(this._results[eventType])) {
-                groupByElement[e] = Object.groupBy(efm, ([timestamp, { element, event, path }]) => {
-                    return path
-                })
-            }
+        // NEXT
+        // client:  sends leading nodes to server with page metadata
+        // server:  walk the tree non-deterministicly starting from leading nodes
+        //
+        const result = {}
 
-            const groupByTimeline = {}
-            for (const [e, efm] of Object.entries(this._results[eventType])) {
-                groupByTimeline[e] = Object.groupBy(efm, ([timestamp, { element, event, path }]) => {
-                    return timestamp
-                })
-            }
+        this._eventTypes.forEach(( keys, groupKey ) => {
 
-             acc[eventType] = {
-                groupByElement,
-                groupByTimeline
-            }
-            return acc
-        }, {})
+            result[groupKey] = {}
 
-        return rawData
+            for (const [eventKey, option] of Object.entries(keys)) {
+                result[groupKey][eventKey] = []
+                const after = typeof option.after === 'function' ? option.after : id
+                for (const [timestamp, frame] of this._frames[groupKey][eventKey].entries())
+
+                    result[groupKey][eventKey].push({[timestamp]: { ...frame, ...after(frame)}})
+            }
+        })
+
+            //
+            //
+            // const groupByElement = {}
+            //
+            // for (const [eventKey, efm] of Object.entries(this._frames[eventsGroup])) {
+            //
+            //     const { after = id } = this._eventsGroup.get(eventsGroup)[eventKey].after
+            //
+            //     groupByElement[eventKey] = Object.groupBy(efm, ([timestamp, { element, event, path }]) => {
+            //         return path
+            //     })
+            // }
+            //
+            // const groupByTimeline = {}
+            //
+            // for (const [eventKey, efm] of Object.entries(this._frames[eventsGroup])) {
+            //     groupByTimeline[eventKey] = Object.groupBy(efm, ([timestamp, { element, event, path }]) => {
+            //         return timestamp
+            //     })
+            // }
+            //
+            //  acc[eventsGroup] = {
+            //     groupByElement,
+            //     groupByTimeline
+            // }
+
+        return result
     }
 
     async getInsights(options: Partial<AnalyzeResultsOptions> = {}) {
@@ -301,7 +318,7 @@ export default class UserBehavior {
         }
 
         return Promise.resolve({
-            raw: this._results,
+            raw: this._frames,
             insights,
             leadingElements
         })
@@ -320,7 +337,7 @@ export default class UserBehavior {
             }
         })
         this._running = false
-        this._eventTypes = []
+        this._eventsGroup = []
 
         return this.results
     }

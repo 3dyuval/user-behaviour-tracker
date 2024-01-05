@@ -14,15 +14,18 @@ const tracker = new Tracker({
     mouseenter: true,
     mousemove: true,
     click: {
-      before: ([timestamp, frame]) => {
-        return [timestamp, {...frame, x: frame.event.offsetX, y: frame.event.offsetY}]
+      before: (event) => {
+        return  event
+      },
+      after: ({ event, element, path }) => {
+        return  {x: event.offsetX, y: event.offsetY}
       },
     }
   },
   keyboardEvents: {
     keydown: true,
     keyup: true
-  }
+  },
 });
 
 const openAiKey = import.meta.env.APP_OPENAI_API_KEY
